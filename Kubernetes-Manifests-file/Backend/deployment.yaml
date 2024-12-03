@@ -1,36 +1,55 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  namespace: capstone-gbc
-  name: backend
+  name: api
+  namespace: capstone
+  labels:
+    role: api
+    env: demo
 spec:
   replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 25%
   selector:
     matchLabels:
-      app: backend
+      role: api
   template:
     metadata:
       labels:
-        app: backend
+        role: api
     spec:
       containers:
-        - name: backend
+        - name: api
           image: public.ecr.aws/w3w7t4h3/capstone-gbc-backend:latest
+          imagePullPolicy: Always
           env:
-            - name: MONGODB_URI
-              value: "mongodb+srv://akul:akul@cluster0.wb1vjpj.mongodb.net/"
+            - name: MONGO_CONN_STR
+              value: mongodb://mongodb-svc:27017/todos?directConnection=true
+            - name: MONGO_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: mongo-sec
+                  key: username
+            - name: MONGO_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mongo-sec
+                  key: password
           ports:
-            - containerPort: 3500
----
-apiVersion: v1
-kind: Service
-metadata:
-  namespace: capstone-gbc
-  name: backend-service
-spec:
-  selector:
-    app: backend
-  ports:
-    - protocol: TCP
-      port: 3500
-      targetPort: 3500
+            - containerPort: 5000
+          livenessProbe:
+            httpGet:
+              path: /ok
+              port: 5000
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /ok
+              port: 5000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            successThreshold: 1
